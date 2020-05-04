@@ -8,7 +8,6 @@ import shutil
 from glob import glob
 import logging
 import textract
-import traceback
 import win32com.client
 import tempfile
 import json
@@ -17,11 +16,13 @@ import pyunpack
 import PIL
 import pytesseract 
 import pdf2image
-import subprocess
 
 import sys
+import pathlib
 
-SETTINGS_PATH = 'settings.json'
+repo_dir = pathlib.Path(__file__).parent.absolute()
+
+SETTINGS_PATH = os.path.join(repo_dir, 'settings.json')
 QUERIES_TO_LOTS_FILENAME = 'queries_to_lots.json'
 LOTS_TO_NAMES_FILENAME = 'lots_to_names.json'
 ZIP_SUBDIR = 'zip'
@@ -98,7 +99,6 @@ def unzip_recursive(root, rm_archive):
 
 def convert_to_docx(src, dst):
     """Library textract does not support .doc correctly, so convert them"""
-    basepath, ext = os.path.splitext(src)
     word = win32com.client.gencache.EnsureDispatch('Word.Application')
     doc = word.Documents.Open(src)
     doc.Activate()
@@ -193,7 +193,6 @@ def get_list_of_lots(query_url):
     tree = get_tree(query_url)
     title_nodes = tree.xpath('//a[@class="section-procurement__item-title" and @href]')
     lots = [node.attrib['href'] for node in title_nodes]
-    logging.info('{} lots found'.format(len(lots)))
     return lots
 
 def get_list_of_lots_cached(query_url, cache_file):
@@ -255,10 +254,10 @@ def get_lot_name_cached(lot_url, workdir):
     return url_to_name[lot_url]
 
 def unzip_recursive_wrapper(src, dst):
+    if os.path.isdir(dst) and os.listdir(dst):
+        logging.info('Omit unzipping {}: dir {} not empty'.format(src, dst))
+        return
     logging.info('Unzipping {} to {}'.format(src, dst))
-    if os.path.isdir(dst):
-        shutil.rmtree(dst, ignore_errors=True)
-    try_makedirs(dst)
     shutil.copytree(src, dst, dirs_exist_ok=True)
     unzip_recursive(dst, rm_archive=True)
     
@@ -287,29 +286,31 @@ def get_symlinks(lot_url, workdir, root):
 def create_query_subdir(query_url, workdir):
     logging.info('Creating symbolic links for query {} in {}'.format(query_url, workdir))
     list_of_lots = get_list_of_lots_cached(query_url, os.path.join(workdir, QUERIES_TO_LOTS_FILENAME))
-    root = os.path.join(workdir, QUERY_SUBDIR)
-    if os.path.isdir(root):
-        shutil.rmtree(root)
+    query_subdir = os.path.join(workdir, QUERY_SUBDIR)
+    if os.path.isdir(query_subdir):
+        shutil.rmtree(query_subdir)
     for url in list_of_lots:
         subdirs = get_subdirs(url, workdir)
-        symlinks = get_symlinks(url, workdir, root)
+        symlinks = get_symlinks(url, workdir, query_subdir)
         for target, link in zip(subdirs, symlinks):
             try_makedirs(os.path.dirname(link))
             #  os.symlink(link, target, True)  # Admin rights needed, so just copy:
             shutil.copytree(target, link)
+    return query_subdir
             
 
 def process_query(query_url, workdir):
     try_makedirs(workdir)
     queries_to_lots_filepath = os.path.join(workdir, QUERIES_TO_LOTS_FILENAME)
     list_of_lots = get_list_of_lots_cached(query_url, queries_to_lots_filepath)
+    logging.info('{} lots found for this query'.format(len(list_of_lots)))
     for url in list_of_lots:
         lot_zipped_subdir, lot_unzipped_subdir, lot_txt_subdir = get_subdirs(url, workdir)
         get_lot_name_cached(url, workdir)
         download_files(url, lot_zipped_subdir, one_by_one=False, force=False)
         unzip_recursive_wrapper(lot_zipped_subdir, lot_unzipped_subdir)
         convert_to_txt_wrapper(lot_unzipped_subdir, lot_txt_subdir)
-    create_query_subdir(query_url, workdir)
+    return create_query_subdir(query_url, workdir)
 
 _example_of_valid_url = 'https://www.tektorg.ru/procedures?q=%D0%A3%D0%B7%D0%B5%D0%BB+%D1%83%D1%87%D0%B5%D1%82%D0%B0+%D0%BD%D0%B5%D1%84%D1%82%D0%B8'
 
@@ -320,22 +321,18 @@ def input_url_is_valid(url):
     return True
 
 
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Downloads and processes data from tektorg.ru')
-    parser.add_argument('--logging_level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'))
-    parser.add_argument('--query_url', '-q', default='', type=str, help='URL of query', metavar=_example_of_valid_url)
+    parser.add_argument('--logging', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'))
+    parser.add_argument('url', help='URL of query. Copy and paste from here:\nhttps://www.tektorg.ru/procedures')
     args = parser.parse_args()
 
     settings = read_object(SETTINGS_PATH)
     workdir = os.path.expanduser(settings['workdir'])
     sys.path.insert(0, os.path.expanduser(settings['tesseract_path']))
-    logging.basicConfig(level=getattr(logging, args.logging_level), format='%(message)s')
-    if args.query_url:
-        if input_url_is_valid(query_url):
-            process_query(query_url, workdir)
-    else:
-        while True:
-            url = input('Copy and paste url of query from here:\nhttps://www.tektorg.ru/procedures\n>>> ')
-            if input_url_is_valid(url):
-                process_query(url, workdir)
+    logging.basicConfig(level=getattr(logging, args.logging), format='%(message)s')
+    if input_url_is_valid(args.url):
+        query_subdir = process_query(args.url, workdir)
+        print('\nDone. Output: {}\n'.format(query_subdir))
