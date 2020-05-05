@@ -1,10 +1,8 @@
 requests
 lxml
-urllib
-zipfile
 textract
-win32com
 pyunpack
-PIL
+Pillow
 pytesseract
 pdf2image
+pywin32

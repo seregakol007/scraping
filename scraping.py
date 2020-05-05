@@ -342,7 +342,10 @@ if __name__ == '__main__':
 
     settings = read_object(SETTINGS_PATH)
     workdir = os.path.expanduser(settings['workdir'])
-    sys.path.insert(0, os.path.expanduser(settings['tesseract_path']))
+    tesseract_path = os.path.expanduser(settings['tesseract_path'])
+    if not os.path.isdir(tesseract_path):
+        sys.exit('tesseract_path is incorrect. Change it in settings.json')
+    sys.path.insert(0, tesseract_path)
     logging.basicConfig(level=getattr(logging, args.logging), format='%(message)s')
     if input_url_is_valid(args.url):
         query_subdir = process_query(args.url, workdir)
