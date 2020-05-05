@@ -113,6 +113,18 @@ def doc_to_text(path):
         content = textract.process(dst)
     return content
 
+def pdf_to_text(pdf_path):
+    try:
+        return pdf_to_text_ocr(pdf_path)
+    except pytesseract.TesseractError:
+        return textract.process(pdf_path)
+
+def fix_line_endings(text):
+    text = text.replace('\r\n', '\n')
+    while ('\n\n' in text):
+        text = text.replace('\n\n', '\n')
+    return text
+
 def pdf_to_text_ocr(pdf_path):
     pages = pdf2image.convert_from_path(pdf_path, 300)
     logging.info('Processing {} ({} pages) using OCR'.format(pdf_path, len(pages)))
@@ -125,19 +137,18 @@ def pdf_to_text_ocr(pdf_path):
                 page = page.rotate(degrees, expand=True)
             page.save(filepath, 'JPEG')
             text = pytesseract.image_to_string(PIL.Image.open(filepath), lang='rus')
-            while ('\n\n' in text):
-                text = text.replace('\n\n', '\n')
             texts.append(text)
-    return '\n\n\n'.join(texts)
+    return '\n'.join(texts)
 
 def any_file_to_str(path):
     ext = os.path.splitext(path)[-1]
-    converters = {'.pdf': pdf_to_text_ocr,
+    converters = {'.pdf': pdf_to_text,
                   '.doc': doc_to_text}
     converter = converters[ext] if ext in converters else textract.process
     result = converter(path)
     if isinstance(result, bytes):
         result = result.decode('utf-8')
+    result = fix_line_endings(result)
     return result
     
 def try_makedirs(path):

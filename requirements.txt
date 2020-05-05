@@ -1,0 +1,10 @@
+requests
+lxml
+urllib
+zipfile
+textract
+win32com
+pyunpack
+PIL
+pytesseract
+pdf2image
