@@ -9,7 +9,7 @@
 
 3) В консоли зупустить скрипт, предварительно заменив путь и URL на корректные:
 
-python /PATH/TO/scraping.py https://www.tektorg.ru/procedures?q=%D0%A3%D0%B7%D0%B5%D0%BB+%D1%83%D1%87%D0%B5%D1%82%D0%B0+%D0%BD%D0%B5%D1%84%D1%82%D0%B8
+'python /PATH/TO/scraping.py https://www.tektorg.ru/procedures?q=%D0%A3%D0%B7%D0%B5%D0%BB+%D1%83%D1%87%D0%B5%D1%82%D0%B0+%D0%BD%D0%B5%D1%84%D1%82%D0%B8'
 
 4) Данные появятся в папке workdir, путь к которой можно изменить в settings.json
 
@@ -25,19 +25,19 @@ python /PATH/TO/scraping.py https://www.tektorg.ru/procedures?q=%D0%A3%D0%B7%D0%
 
 5) Открыть консоль, перейти в папку, куда нужно скачать проект, например, так:
 
-cd ~\Documents
+`cd ~\Documents`
 
 6) Скачать проект:
 
-git clone https://github.com/seregakol007/scraping.git
+`git clone https://github.com/seregakol007/scraping.git`
 
 7) Перейти в папку проекта:
 
-cd scraping
+`cd scraping`
 
 8) Установить модули для python3:
 
-pip install -r requirements.txt 
+`pip install -r requirements.txt`
 
 9) При необходимости изменить путь к tesseract в settings.py
 
