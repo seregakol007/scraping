@@ -28,11 +28,19 @@ Project -> Add folder to project... -> Ctrl+Shift+F
 # Установка
 1) Установить python3 https://www.python.org/downloads/
 
+Поставить галочку Add Python 3 to PATH
+
+В конце установки, если предложат, выбрать Change PATH limit
+
 2) Установить pip https://www.liquidweb.com/kb/install-pip-windows/
 
 3) Установить git https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
 4) Установить tesseract https://tesseract-ocr.github.io/tessdoc/Home.html
+
+При установке поставить галочку на Additional language data -> Russian
+
+Всё остальное лучше оставить по умолчанию
 
 5) Открыть консоль, перейти в папку, куда нужно скачать проект, например, так:
 
