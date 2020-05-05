@@ -12,6 +12,7 @@ import win32com.client
 import tempfile
 import json
 import pyunpack
+import traceback
 
 import PIL
 import pytesseract 
@@ -130,7 +131,7 @@ def pdf_to_text_ocr(pdf_path):
     logging.info('Processing {} ({} pages) using OCR'.format(pdf_path, len(pages)))
     texts = []
     with tempfile.TemporaryDirectory(prefix='advanced_search_') as tmp_dir:
-        for page in pages: 
+        for page in pages:
             filepath = os.path.join(tmp_dir, "page.jpg")
             degrees = pytesseract.image_to_osd(page, output_type=pytesseract.Output.DICT)['orientation']
             if degrees != 0:
@@ -157,6 +158,7 @@ def try_makedirs(path):
     except OSError:
         pass
 
+
 def convert_to_txt_recursively(root_src, root_dst, extentions):
     logging.info('Converting {} to text and saving to {}'.format(root_src, root_dst))
     problem_files = []
@@ -172,7 +174,10 @@ def convert_to_txt_recursively(root_src, root_dst, extentions):
             try:
                 content = any_file_to_str(cur_path)
                 converted_files.append(cur_path)
+            except KeyboardInterrupt:
+                sys.exit('KeyboardInterrupt')
             except:
+                logging.debug(traceback.format_exc())
                 problem_files.append(cur_path)
                 break
             new_dir = os.path.dirname(new_path)
@@ -185,9 +190,9 @@ def convert_to_txt_wrapper(root_src, root_dst, extentions=('.xls', '.xlsx', '.do
     if not os.path.isdir(root_dst) or not os.listdir(root_dst):
         categories = convert_to_txt_recursively(root_src, root_dst, extentions)
         if categories['problem']:
-            logging.info('Problems while converting to text: {}'.format(categories['problem']))
+            logging.warning('Problems while converting to text:\n{}'.format(categories['problem']))
     else:
-        logging.info('Omit converting files to txt for {}: dir {} not empty'.format(root_src, root_dst))
+        logging.info('Omit converting files to txt for {}:\ndir {} not empty'.format(root_src, root_dst))
         
 
 def get_url_root(url):
@@ -200,7 +205,7 @@ def get_tree(url):
     return tree
 
 def get_list_of_lots(query_url):
-    logging.info('Executing query: {}'.format(query_url))
+    logging.info('Executing query:\n{}'.format(query_url))
     tree = get_tree(query_url)
     title_nodes = tree.xpath('//a[@class="section-procurement__item-title" and @href]')
     lots = [node.attrib['href'] for node in title_nodes]
@@ -211,7 +216,7 @@ def get_list_of_lots_cached(query_url, cache_file):
     if os.path.isfile(cache_file):
         query_to_lots_mapping = read_object(cache_file)
         if query_url in query_to_lots_mapping:
-            logging.info('Found in cache, no request: {}'.format(query_url))
+            logging.info('Found in cache, no request:\n{}'.format(query_url))
             return query_to_lots_mapping[query_url]
     list_of_lots = get_list_of_lots(query_url)
     query_to_lots_mapping[query_url] = list_of_lots
@@ -233,7 +238,7 @@ def download_files(lot_url, storage_dir, one_by_one, force):
         tree = get_tree(lot_url)
         f(tree, storage_dir)
     else:
-        logging.info('Omit downloading files for {}: dir {} not empty'.format(lot_url, storage_dir))
+        logging.info('Omit downloading files for {}:\ndir {} not empty'.format(lot_url, storage_dir))
         
 def download_files_in_zip(tree, storage_dir):
     download_link = tree.xpath('//a[@class="downloadDocument btn procedure__lot-button" and @href]')[0]
@@ -266,7 +271,7 @@ def get_lot_name_cached(lot_url, workdir):
 
 def unzip_recursive_wrapper(src, dst):
     if os.path.isdir(dst) and os.listdir(dst):
-        logging.info('Omit unzipping {}: dir {} not empty'.format(src, dst))
+        logging.info('Omit unzipping {}:\ndir {} not empty'.format(src, dst))
         return
     logging.info('Unzipping {} to {}'.format(src, dst))
     shutil.copytree(src, dst, dirs_exist_ok=True)
@@ -343,10 +348,12 @@ if __name__ == '__main__':
     settings = read_object(SETTINGS_PATH)
     workdir = os.path.expanduser(settings['workdir'])
     tesseract_path = os.path.expanduser(settings['tesseract_path'])
-    if not os.path.isdir(tesseract_path):
+    tesseract_exe = os.path.join(tesseract_path, 'tesseract.exe')
+    if not os.path.isdir(tesseract_path) or not os.path.isfile(tesseract_exe):
         sys.exit('tesseract_path is incorrect. Change it in settings.json')
+    pytesseract.pytesseract.tesseract_cmd = tesseract_exe
     sys.path.insert(0, tesseract_path)
     logging.basicConfig(level=getattr(logging, args.logging), format='%(message)s')
     if input_url_is_valid(args.url):
         query_subdir = process_query(args.url, workdir)
-        print('\nDone. Output: {}\n'.format(query_subdir))
+        print('\nDone. Output:\n{}\n'.format(query_subdir))
