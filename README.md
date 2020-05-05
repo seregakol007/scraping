@@ -23,7 +23,7 @@ txt - Документы, конвертированные в текст
 
 Для поиска подстрок по всем файлам внутри папки можно использовать Sublime Text 3:
 
-Project -> Add folder to project... -> Ctrl+Shift+N
+Project -> Add folder to project... -> Ctrl+Shift+F
 
 # Установка
 1) Установить python3 https://www.python.org/downloads/
