@@ -128,7 +128,7 @@ def fix_line_endings(text):
 
 def pdf_to_text_ocr(pdf_path):
     pages = pdf2image.convert_from_path(pdf_path, 300)
-    logging.info('Processing {} ({} pages) using OCR'.format(pdf_path, len(pages)))
+    logging.info(u'Обработка {} ({} страниц) с использованием оптического распознавания символов'.format(pdf_path, len(pages)))
     texts = []
     with tempfile.TemporaryDirectory(prefix='advanced_search_') as tmp_dir:
         for page in pages:
@@ -160,7 +160,7 @@ def try_makedirs(path):
 
 
 def convert_to_txt_recursively(root_src, root_dst, extentions):
-    logging.info('Converting {} to text and saving to {}'.format(root_src, root_dst))
+    logging.info(u'Конвертация {} в текстовый формат и сохранение в {}'.format(root_src, root_dst))
     problem_files = []
     converted_files = []
     ignored_files = []
@@ -190,9 +190,9 @@ def convert_to_txt_wrapper(root_src, root_dst, extentions=('.xls', '.xlsx', '.do
     if not os.path.isdir(root_dst) or not os.listdir(root_dst):
         categories = convert_to_txt_recursively(root_src, root_dst, extentions)
         if categories['problem']:
-            logging.warning('Problems while converting to text:\n{}'.format(categories['problem']))
+            logging.warning(u'Проблема при конвертации в текст:\n{}'.format(categories['problem']))
     else:
-        logging.info('Omit converting files to txt for {}:\ndir {} not empty'.format(root_src, root_dst))
+        logging.info(u'Пропускаем конвертацию в текстовый формат для {}:\nДиректория {} уже не пуста'.format(root_src, root_dst))
         
 
 def get_url_root(url):
@@ -205,7 +205,7 @@ def get_tree(url):
     return tree
 
 def get_list_of_lots(query_url):
-    logging.info('Executing query:\n{}'.format(query_url))
+    logging.info(u'Выполнение запроса:\n{}'.format(query_url))
     tree = get_tree(query_url)
     title_nodes = tree.xpath('//a[@class="section-procurement__item-title" and @href]')
     lots = [node.attrib['href'] for node in title_nodes]
@@ -216,7 +216,7 @@ def get_list_of_lots_cached(query_url, cache_file):
     if os.path.isfile(cache_file):
         query_to_lots_mapping = read_object(cache_file)
         if query_url in query_to_lots_mapping:
-            logging.info('Found in cache, no request:\n{}'.format(query_url))
+            logging.info(u'Необходимая информация найдена в кэше, запрос {} не будет выполнен'.format(query_url))
             return query_to_lots_mapping[query_url]
     list_of_lots = get_list_of_lots(query_url)
     query_to_lots_mapping[query_url] = list_of_lots
@@ -224,7 +224,7 @@ def get_list_of_lots_cached(query_url, cache_file):
     return list_of_lots
     
 def download_file(link, directory):
-    logging.info('Downloading file using link {}'.format(link))
+    logging.info(u'Скачивание файла по ссылке {}'.format(link))
     response = requests.get(link)
     fname = get_filename(response)
     path = os.path.join(directory, fname)
@@ -238,7 +238,7 @@ def download_files(lot_url, storage_dir, one_by_one, force):
         tree = get_tree(lot_url)
         f(tree, storage_dir)
     else:
-        logging.info('Omit downloading files for {}:\ndir {} not empty'.format(lot_url, storage_dir))
+        logging.info(u'Пропускаем загрузку файлов для {}:\nДиректория {} уже не пуста'.format(lot_url, storage_dir))
         
 def download_files_in_zip(tree, storage_dir):
     download_link = tree.xpath('//a[@class="downloadDocument btn procedure__lot-button" and @href]')[0]
@@ -271,9 +271,9 @@ def get_lot_name_cached(lot_url, workdir):
 
 def unzip_recursive_wrapper(src, dst):
     if os.path.isdir(dst) and os.listdir(dst):
-        logging.info('Omit unzipping {}:\ndir {} not empty'.format(src, dst))
+        logging.info(u'Пропускаем разархивирование для {}:\nДиректория {} уже не пуста'.format(src, dst))
         return
-    logging.info('Unzipping {} to {}'.format(src, dst))
+    logging.info(u'Разархивирование {} в {}'.format(src, dst))
     shutil.copytree(src, dst, dirs_exist_ok=True)
     unzip_recursive(dst, rm_archive=True)
     
@@ -300,18 +300,24 @@ def get_symlinks(lot_url, workdir, root):
     return get_subdirs(lot_url, root=root, suffix=suffix)
 
 def create_query_subdir(query_url, workdir):
-    logging.info('Creating symbolic links for query {} in {}'.format(query_url, workdir))
-    list_of_lots = get_list_of_lots_cached(query_url, os.path.join(workdir, QUERIES_TO_LOTS_FILENAME))
     query_subdir = os.path.join(workdir, QUERY_SUBDIR)
+    logging.info(u'Копирование релевантных лотов для запроса {} в папку {}'.format(query_url, query_subdir))
+    list_of_lots = get_list_of_lots_cached(query_url, os.path.join(workdir, QUERIES_TO_LOTS_FILENAME))
     if os.path.isdir(query_subdir):
-        shutil.rmtree(query_subdir)
+        try:
+            shutil.rmtree(query_subdir)
+        except:
+            print(traceback.format_exc())
+            print(u'Не удалось очистить директорию {}\nЗакройте файлы, хранящиеся в ней, или удалите её вручную, после чего перезапустите скрипт'.format(query_subdir))
+            sys.exit(1)
     for url in list_of_lots:
         subdirs = get_subdirs(url, workdir)
         symlinks = get_symlinks(url, workdir, query_subdir)
         for target, link in zip(subdirs, symlinks):
             try_makedirs(os.path.dirname(link))
             #  os.symlink(link, target, True)  # Admin rights needed, so just copy:
-            shutil.copytree(target, link)
+            if os.path.isdir(target):
+                shutil.copytree(target, link)
     return query_subdir
             
 
@@ -319,13 +325,17 @@ def process_query(query_url, workdir):
     try_makedirs(workdir)
     queries_to_lots_filepath = os.path.join(workdir, QUERIES_TO_LOTS_FILENAME)
     list_of_lots = get_list_of_lots_cached(query_url, queries_to_lots_filepath)
-    logging.info('{} lots found for this query'.format(len(list_of_lots)))
+    logging.info(u'Найдено {} релевантных данному запросу лотов'.format(len(list_of_lots)))
     for url in list_of_lots:
-        lot_zipped_subdir, lot_unzipped_subdir, lot_txt_subdir = get_subdirs(url, workdir)
-        get_lot_name_cached(url, workdir)
-        download_files(url, lot_zipped_subdir, one_by_one=False, force=False)
-        unzip_recursive_wrapper(lot_zipped_subdir, lot_unzipped_subdir)
-        convert_to_txt_wrapper(lot_unzipped_subdir, lot_txt_subdir)
+        try:
+            lot_zipped_subdir, lot_unzipped_subdir, lot_txt_subdir = get_subdirs(url, workdir)
+            get_lot_name_cached(url, workdir)
+            download_files(url, lot_zipped_subdir, one_by_one=False, force=False)
+            unzip_recursive_wrapper(lot_zipped_subdir, lot_unzipped_subdir)
+            convert_to_txt_wrapper(lot_unzipped_subdir, lot_txt_subdir)
+        except:
+            logging.warning(u'Возникла проблема при обработке {}'.format(url))
+            logging.debug(traceback.format_exc())
     return create_query_subdir(query_url, workdir)
 
 _example_of_valid_url = 'https://www.tektorg.ru/procedures?q=%D0%A3%D0%B7%D0%B5%D0%BB+%D1%83%D1%87%D0%B5%D1%82%D0%B0+%D0%BD%D0%B5%D1%84%D1%82%D0%B8'
