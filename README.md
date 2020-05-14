@@ -69,3 +69,9 @@
 10) Выполнить тестовый запрос
 
 `python scraping.py https://www.tektorg.ru/procedures?q=%D0%A3%D0%B7%D0%B5%D0%BB+%D1%83%D1%87%D0%B5%D1%82%D0%B0+%D0%BD%D0%B5%D1%84%D1%82%D0%B8 `
+
+# Известные проблемы
+
+1) Если в скачанных файлах присутствует глубокая вложенность каталогов, длина пути к файлу может превысить максимально допустимую  (MAX_PATH=260 для Windows), тогда возможны проблемы с удалением или открытием соответствующих файлов.
+Пример обсуждения
+https://superuser.com/questions/78434/how-to-delete-directories-with-path-names-too-long-for-normal-delete
